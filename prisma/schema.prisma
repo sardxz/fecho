@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  PRO
+}
+
+enum Frequency {
+  ONCE
+  WEEKLY
+  MONTHLY
+}
+
+enum GroupStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum MemberStatus {
+  ACTIVE
+  PENDING
+  REMOVED
+}
+
+enum ChargeStatus {
+  PENDING
+  PROOF_SENT
+  PAID
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ─── Auth.js models ──────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  plan          Plan      @default(FREE)
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  accounts Account[]
+  sessions Session[]
+  groups   Group[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ─── Domínio ─────────────────────────────────────────────────────────────────
+
+model Group {
+  id            String      @id @default(cuid())
+  ownerId       String      @map("owner_id")
+  name          String
+  description   String?
+  defaultAmount Decimal     @map("default_amount") @db.Decimal(10, 2)
+  frequency     Frequency
+  dueDay        Int         @map("due_day")
+  pixKey        String      @map("pix_key")
+  status        GroupStatus @default(ACTIVE)
+  slug          String      @unique
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  owner   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members Member[]
+  charges Charge[]
+
+  @@map("groups")
+}
+
+model Member {
+  id          String       @id @default(cuid())
+  groupId     String       @map("group_id")
+  name        String
+  phone       String
+  email       String?
+  status      MemberStatus @default(ACTIVE)
+  publicToken String       @unique @default(cuid()) @map("public_token")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  group   Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  charges Charge[]
+
+  @@map("members")
+}
+
+model Charge {
+  id        String       @id @default(cuid())
+  groupId   String       @map("group_id")
+  memberId  String       @map("member_id")
+  amount    Decimal      @db.Decimal(10, 2)
+  dueDate   DateTime     @map("due_date")
+  status    ChargeStatus @default(PENDING)
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@map("charges")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  chargeId        String        @map("charge_id")
+  proofUrl        String?       @map("proof_url")
+  status          PaymentStatus @default(PENDING_REVIEW)
+  observation     String?
+  approvedBy      String?       @map("approved_by")
+  approvedAt      DateTime?     @map("approved_at")
+  rejectionReason String?       @map("rejection_reason")
+  paidAt          DateTime?     @map("paid_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  charge Charge @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}

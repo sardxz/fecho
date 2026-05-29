@@ -1,15 +1,56 @@
 "use client";
 
-// TODO (Fase 4 — Auth.js): trocar pelo `signIn("email", { email })` do
-// NextAuth. Por ora, mostra um placeholder porque o backend de auth ainda
-// não existe.
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
 export function LoginForm() {
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const result = await signIn("resend", {
+      email,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("Não foi possível enviar o link. Tente novamente.");
+      setLoading(false);
+      return;
+    }
+
+    window.location.href = "/login?state=verify-request";
+  }
+
   return (
-    <div className="space-y-2 text-center">
-      <h2 className="text-lg font-semibold">Login em reconstrução</h2>
-      <p className="text-sm text-muted-foreground">
-        Estamos trocando o backend de autenticação. Volta em breve.
-      </p>
-    </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email">E-mail</Label>
+        <Input
+          id="email"
+          type="email"
+          placeholder="seu@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          disabled={loading}
+          autoComplete="email"
+        />
+      </div>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? "Enviando..." : "Enviar link de acesso"}
+      </Button>
+    </form>
   );
 }
