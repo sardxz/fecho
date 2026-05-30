@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Capriola } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
-const inter = Inter({
+const capriola = Capriola({
   variable: "--font-sans",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -24,7 +25,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${inter.variable} h-full antialiased`}>
+    <html lang="pt-BR" className={`${capriola.variable} h-full antialiased`}>
       <body className="min-h-full">
         <Providers>{children}</Providers>
         <Toaster richColors position="top-center" />
