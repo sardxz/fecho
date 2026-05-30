@@ -1,0 +1,151 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { memberSchema, generateChargesSchema } from "@/lib/validations/member";
+import { normalizePhoneBR } from "@/lib/phone";
+import { generateChargesForGroup } from "@/lib/charges";
+
+export type MemberFormState = {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  ok?: boolean;
+};
+
+export type ChargeFormState = {
+  error?: string;
+  fieldErrors?: Record<string, string[]>;
+  created?: number;
+};
+
+const FREE_MEMBER_LIMIT = 10;
+
+async function requireUserId(): Promise<string> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Não autenticado.");
+  return session.user.id;
+}
+
+function toFieldErrors(
+  issues: { path: PropertyKey[]; message: string }[],
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const issue of issues) {
+    const key = String(issue.path[0] ?? "form");
+    (out[key] ??= []).push(issue.message);
+  }
+  return out;
+}
+
+// Confirma que o grupo existe e pertence ao usuário logado.
+async function assertOwnsGroup(groupId: string, userId: string) {
+  const group = await db.group.findUnique({
+    where: { id: groupId },
+    select: { ownerId: true },
+  });
+  return !!group && group.ownerId === userId;
+}
+
+export async function addMember(
+  groupId: string,
+  _prev: MemberFormState,
+  formData: FormData,
+): Promise<MemberFormState> {
+  const userId = await requireUserId();
+  if (!(await assertOwnsGroup(groupId, userId))) {
+    return { error: "Grupo não encontrado." };
+  }
+
+  const parsed = memberSchema.safeParse({
+    name: formData.get("name"),
+    phone: formData.get("phone"),
+    email: formData.get("email"),
+  });
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const phone = normalizePhoneBR(parsed.data.phone);
+  if (!phone) {
+    return { fieldErrors: { phone: ["Telefone inválido. Use DDD + número."] } };
+  }
+
+  // Limite freemium: 10 membros ativos por grupo no FREE — checado no servidor.
+  const owner = await db.user.findUnique({
+    where: { id: userId },
+    select: { plan: true },
+  });
+  if (owner?.plan === "FREE") {
+    const count = await db.member.count({
+      where: { groupId, status: { not: "REMOVED" } },
+    });
+    if (count >= FREE_MEMBER_LIMIT) {
+      return {
+        error: `No plano gratuito cada grupo tem até ${FREE_MEMBER_LIMIT} membros. Faça upgrade pro PRO para adicionar mais.`,
+      };
+    }
+  }
+
+  await db.member.create({
+    data: {
+      groupId,
+      name: parsed.data.name,
+      phone,
+      email: parsed.data.email || null,
+    },
+  });
+
+  revalidatePath(`/dashboard/grupos/${groupId}`);
+  return { ok: true };
+}
+
+// Remoção é soft (status REMOVED): preserva o histórico de cobranças do membro.
+export async function removeMember(formData: FormData): Promise<void> {
+  const userId = await requireUserId();
+  const memberId = String(formData.get("memberId") ?? "");
+
+  const member = await db.member.findUnique({
+    where: { id: memberId },
+    select: { groupId: true, group: { select: { ownerId: true } } },
+  });
+  if (!member || member.group.ownerId !== userId) return;
+
+  await db.member.update({
+    where: { id: memberId },
+    data: { status: "REMOVED" },
+  });
+
+  revalidatePath(`/dashboard/grupos/${member.groupId}`);
+}
+
+export async function generateCharges(
+  groupId: string,
+  _prev: ChargeFormState,
+  formData: FormData,
+): Promise<ChargeFormState> {
+  const userId = await requireUserId();
+  if (!(await assertOwnsGroup(groupId, userId))) {
+    return { error: "Grupo não encontrado." };
+  }
+
+  const parsed = generateChargesSchema.safeParse({
+    dueDate: formData.get("dueDate"),
+    amount: formData.get("amount"),
+  });
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+  const { dueDate, amount } = parsed.data;
+
+  const created = await generateChargesForGroup(groupId, dueDate, amount);
+  if (created === 0) {
+    return {
+      error:
+        "Nada gerado: ou não há membros ativos, ou todos já têm cobrança nessa data.",
+    };
+  }
+
+  revalidatePath(`/dashboard/grupos/${groupId}`);
+  return { created };
+}

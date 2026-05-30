@@ -111,7 +111,8 @@ model Group {
   description   String?
   defaultAmount Decimal     @map("default_amount") @db.Decimal(10, 2)
   frequency     Frequency
-  dueDay        Int         @map("due_day")
+  weekday       Int?        @map("weekday") // 0=domingo..6=sábado, usado quando WEEKLY
+  dueDay        Int?        @map("due_day") // dia do mês, usado quando MONTHLY
   pixKey        String      @map("pix_key")
   status        GroupStatus @default(ACTIVE)
   slug          String      @unique
