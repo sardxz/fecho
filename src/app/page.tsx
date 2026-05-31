@@ -108,7 +108,7 @@ export default function LandingPage() {
         {/* Como funciona */}
         <section
           id="como-funciona"
-          className="bg-linear-to-br from-sky-50/90 via-white to-violet-50 py-20"
+          className="bg-linear-to-br from-violet-500/85 via-purple-500/75 to-indigo-500/85 py-20"
         >
           <div className="container mx-auto max-w-5xl px-4">
             <div className="mb-10 text-center">
@@ -166,7 +166,7 @@ export default function LandingPage() {
         </section>
 
         {/* CTA final */}
-        <section className="bg-linear-to-r from-violet-600 via-fuchsia-600 to-indigo-600 py-20 text-white">
+        <section className="bg-violet-950 py-20 text-white">
           <div className="container mx-auto max-w-3xl px-4 text-center">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               Pronto pra organizar seu grupo?
@@ -191,7 +191,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-violet-400/30 bg-violet-950 py-8">
+      <footer className="border-t border-white/10 bg-violet-950 py-8">
         <div className="container mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 text-sm text-violet-100/75 sm:flex-row">
           <Logo className="text-base text-white" />
           <p>© {new Date().getFullYear()} Fechô. Feito no Brasil.</p>
