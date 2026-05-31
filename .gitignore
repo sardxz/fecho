@@ -43,4 +43,7 @@ next-env.d.ts
 # codex skills (tooling local, fora do versionamento)
 .codex/
 
+# CLAUDE.md — notas internas / estado do projeto, só local (não versionar)
+/CLAUDE.md
+
 /src/generated/prisma
