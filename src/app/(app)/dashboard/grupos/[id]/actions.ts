@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { memberSchema, generateChargesSchema } from "@/lib/validations/member";
+import { rejectionReasonSchema } from "@/lib/validations/proof";
 import { normalizePhoneBR } from "@/lib/phone";
 import { generateChargesForGroup } from "@/lib/charges";
 
@@ -17,6 +18,11 @@ export type ChargeFormState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
   created?: number;
+};
+
+export type ReviewState = {
+  error?: string;
+  ok?: boolean;
 };
 
 const FREE_MEMBER_LIMIT = 10;
@@ -148,4 +154,97 @@ export async function generateCharges(
 
   revalidatePath(`/dashboard/grupos/${groupId}`);
   return { created };
+}
+
+// Carrega um pagamento garantindo que ele pertence a um grupo do usuário logado.
+// Devolve null se não existir ou não for do dono — evita aprovar/recusar
+// comprovante de grupo alheio.
+async function loadOwnedPayment(paymentId: string, userId: string) {
+  const payment = await db.payment.findUnique({
+    where: { id: paymentId },
+    select: {
+      id: true,
+      status: true,
+      charge: { select: { id: true, groupId: true, group: { select: { ownerId: true } } } },
+    },
+  });
+  if (!payment || payment.charge.group.ownerId !== userId) return null;
+  return payment;
+}
+
+// Aprova um comprovante: pagamento → APPROVED (com auditoria) e cobrança → PAID.
+export async function approvePayment(
+  groupId: string,
+  _prev: ReviewState,
+  formData: FormData,
+): Promise<ReviewState> {
+  const userId = await requireUserId();
+  const paymentId = String(formData.get("paymentId") ?? "");
+
+  const payment = await loadOwnedPayment(paymentId, userId);
+  if (!payment || payment.charge.groupId !== groupId) {
+    return { error: "Comprovante não encontrado." };
+  }
+  // Guarda de corrida: só age se ainda está aguardando revisão.
+  if (payment.status !== "PENDING_REVIEW") {
+    return { error: "Esse comprovante já foi revisado." };
+  }
+
+  const now = new Date();
+  await db.$transaction([
+    db.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: "APPROVED",
+        approvedBy: userId,
+        approvedAt: now,
+        paidAt: now,
+      },
+    }),
+    db.charge.update({
+      where: { id: payment.charge.id },
+      data: { status: "PAID" },
+    }),
+  ]);
+
+  revalidatePath(`/dashboard/grupos/${groupId}`);
+  return { ok: true };
+}
+
+// Recusa um comprovante: pagamento → REJECTED (com motivo) e cobrança →
+// REJECTED. A cobrança volta a aceitar reenvio (submitProof permite REJECTED).
+export async function rejectPayment(
+  groupId: string,
+  _prev: ReviewState,
+  formData: FormData,
+): Promise<ReviewState> {
+  const userId = await requireUserId();
+  const paymentId = String(formData.get("paymentId") ?? "");
+
+  const parsed = rejectionReasonSchema.safeParse(formData.get("reason"));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Motivo inválido." };
+  }
+
+  const payment = await loadOwnedPayment(paymentId, userId);
+  if (!payment || payment.charge.groupId !== groupId) {
+    return { error: "Comprovante não encontrado." };
+  }
+  if (payment.status !== "PENDING_REVIEW") {
+    return { error: "Esse comprovante já foi revisado." };
+  }
+
+  await db.$transaction([
+    db.payment.update({
+      where: { id: payment.id },
+      data: { status: "REJECTED", rejectionReason: parsed.data },
+    }),
+    db.charge.update({
+      where: { id: payment.charge.id },
+      data: { status: "REJECTED" },
+    }),
+  ]);
+
+  revalidatePath(`/dashboard/grupos/${groupId}`);
+  return { ok: true };
 }

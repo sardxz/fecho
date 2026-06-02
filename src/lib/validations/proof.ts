@@ -18,3 +18,11 @@ export const proofObservationSchema = z
   .trim()
   .max(280, "A observação pode ter no máximo 280 caracteres.")
   .optional();
+
+// Motivo da recusa, preenchido pelo organizador na Etapa 5. Obrigatório:
+// o participante precisa saber por que o comprovante foi recusado pra reenviar.
+export const rejectionReasonSchema = z
+  .string()
+  .trim()
+  .min(3, "Explique brevemente o motivo da recusa.")
+  .max(280, "O motivo pode ter no máximo 280 caracteres.");

@@ -15,7 +15,14 @@ import { formatBRL, frequencyLabels, describeRecurrence } from "@/lib/format";
 import { formatPhoneBR } from "@/lib/phone";
 import { MemberForm } from "./member-form";
 import { ChargeGenerator } from "./charge-generator";
-import { addMember, removeMember, generateCharges } from "./actions";
+import { ReviewActions } from "./review-actions";
+import {
+  addMember,
+  removeMember,
+  generateCharges,
+  approvePayment,
+  rejectPayment,
+} from "./actions";
 
 const FREE_MEMBER_LIMIT = 10;
 
@@ -62,6 +69,36 @@ function formatDate(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
+type ChargeForSummary = {
+  status: string;
+  amount: { toString(): string };
+  dueDate: Date;
+  memberId: string;
+};
+
+// Resumo financeiro do grupo. "Arrecadado" = cobranças pagas; "em aberto" =
+// tudo que não foi pago. Inadimplente = membro com cobrança vencida (mesma
+// regra do badge: pendente e vencimento no passado). Isolado numa função pra
+// manter o componente puro (Date.now() não pode ser chamado direto no render).
+function computeSummary(charges: ChargeForSummary[]) {
+  const now = Date.now();
+  let collected = 0;
+  let outstanding = 0;
+  const defaultersSet = new Set<string>();
+  for (const c of charges) {
+    const amount = Number(c.amount.toString());
+    if (c.status === "PAID") {
+      collected += amount;
+    } else {
+      outstanding += amount;
+    }
+    if (c.status === "PENDING" && c.dueDate.getTime() < now) {
+      defaultersSet.add(c.memberId);
+    }
+  }
+  return { collected, outstanding, defaulters: defaultersSet.size };
+}
+
 export default async function GroupPanelPage({
   params,
 }: {
@@ -82,7 +119,14 @@ export default async function GroupPanelPage({
       },
       charges: {
         orderBy: { dueDate: "desc" },
-        include: { member: { select: { name: true } } },
+        include: {
+          member: { select: { name: true } },
+          payments: {
+            where: { status: "PENDING_REVIEW" },
+            orderBy: { createdAt: "desc" },
+            select: { id: true, observation: true, createdAt: true },
+          },
+        },
       },
     },
   });
@@ -94,6 +138,22 @@ export default async function GroupPanelPage({
   const isFree = group.owner.plan === "FREE";
   const memberCount = group.members.length;
   const canAddMember = !isFree || memberCount < FREE_MEMBER_LIMIT;
+
+  const { collected, outstanding, defaulters } = computeSummary(group.charges);
+
+  // Fila de revisão: cada comprovante PENDING_REVIEW vira uma linha, com os
+  // dados da cobrança a que pertence. Mais recentes primeiro.
+  const pendingProofs = group.charges
+    .flatMap((c) =>
+      c.payments.map((p) => ({
+        paymentId: p.id,
+        observation: p.observation,
+        sentAt: p.createdAt,
+        memberName: c.member.name,
+        amount: c.amount.toString(),
+      })),
+    )
+    .sort((a, b) => b.sentAt.getTime() - a.sentAt.getTime());
 
   return (
     <div className="flex flex-col gap-8">
@@ -141,6 +201,92 @@ export default async function GroupPanelPage({
           {describeRecurrence(group.frequency, group.weekday, group.dueDay)}
         </p>
       </header>
+
+      {/* Resumo financeiro */}
+      <section className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Arrecadado</CardDescription>
+            <CardTitle className="text-2xl text-foreground">
+              {formatBRL(collected)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm text-muted-foreground">
+            Cobranças já pagas.
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Em aberto</CardDescription>
+            <CardTitle className="text-2xl text-foreground">
+              {formatBRL(outstanding)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm text-muted-foreground">
+            Ainda não recebido.
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Inadimplentes</CardDescription>
+            <CardTitle className="text-2xl text-foreground">
+              {defaulters}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 text-sm text-muted-foreground">
+            {defaulters === 1 ? "membro com cobrança vencida" : "membros com cobrança vencida"}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Comprovantes a revisar */}
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">
+            Comprovantes a revisar
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {pendingProofs.length === 0
+              ? "Nenhum comprovante aguardando revisão."
+              : `${pendingProofs.length} ${pendingProofs.length === 1 ? "comprovante aguardando" : "comprovantes aguardando"} sua aprovação.`}
+          </p>
+        </div>
+
+        {pendingProofs.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {pendingProofs.map((p) => (
+              <Card key={p.paymentId}>
+                <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-1">
+                    <p className="font-medium">{p.memberName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatBRL(p.amount)} · enviado em {formatDate(p.sentAt)}
+                    </p>
+                    {p.observation && (
+                      <p className="text-sm text-muted-foreground">
+                        “{p.observation}”
+                      </p>
+                    )}
+                    <a
+                      href={`/dashboard/grupos/${group.id}/comprovante/${p.paymentId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Ver comprovante →
+                    </a>
+                  </div>
+                  <ReviewActions
+                    paymentId={p.paymentId}
+                    approveAction={approvePayment.bind(null, group.id)}
+                    rejectAction={rejectPayment.bind(null, group.id)}
+                  />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Membros */}
       <section className="flex flex-col gap-4">
