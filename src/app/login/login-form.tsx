@@ -19,6 +19,9 @@ export function LoginForm() {
     const result = await signIn("resend", {
       email,
       redirect: false,
+      // Destino após clicar no magic link. Sem isso o Auth.js usa a página
+      // atual (/login) como callback e o usuário fica preso no form mesmo logado.
+      callbackUrl: "/dashboard",
     });
 
     if (result?.error) {

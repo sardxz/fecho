@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import {
   Card,
   CardContent,
@@ -18,6 +20,11 @@ interface Props {
 }
 
 export default async function LoginPage({ searchParams }: Props) {
+  // Já logado? Não faz sentido mostrar o form — manda direto pro painel.
+  // Evita ficar preso aqui caso o magic link (ou um link antigo) caia em /login.
+  const session = await auth();
+  if (session?.user) redirect("/dashboard");
+
   const { state } = await searchParams;
 
   return (
