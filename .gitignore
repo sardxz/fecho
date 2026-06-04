@@ -47,3 +47,7 @@ next-env.d.ts
 /CLAUDE.md
 
 /src/generated/prisma
+
+# graphify — knowledge graph gerado (saída de build, local)
+/graphify-out/
+.graphify_*

@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/card";
 import { formatBRL, frequencyLabels, describeRecurrence } from "@/lib/format";
 import { formatPhoneBR } from "@/lib/phone";
+import { computeSummary } from "@/lib/summary";
+import { whatsappChargeLink } from "@/lib/whatsapp";
 import { MemberForm } from "./member-form";
 import { ChargeGenerator } from "./charge-generator";
 import { ReviewActions } from "./review-actions";
@@ -69,34 +71,10 @@ function formatDate(d: Date): string {
   return d.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
 
-type ChargeForSummary = {
-  status: string;
-  amount: { toString(): string };
-  dueDate: Date;
-  memberId: string;
-};
-
-// Resumo financeiro do grupo. "Arrecadado" = cobranças pagas; "em aberto" =
-// tudo que não foi pago. Inadimplente = membro com cobrança vencida (mesma
-// regra do badge: pendente e vencimento no passado). Isolado numa função pra
-// manter o componente puro (Date.now() não pode ser chamado direto no render).
-function computeSummary(charges: ChargeForSummary[]) {
-  const now = Date.now();
-  let collected = 0;
-  let outstanding = 0;
-  const defaultersSet = new Set<string>();
-  for (const c of charges) {
-    const amount = Number(c.amount.toString());
-    if (c.status === "PAID") {
-      collected += amount;
-    } else {
-      outstanding += amount;
-    }
-    if (c.status === "PENDING" && c.dueDate.getTime() < now) {
-      defaultersSet.add(c.memberId);
-    }
-  }
-  return { collected, outstanding, defaulters: defaultersSet.size };
+// Cobranças que cabe cobrar pelo WhatsApp: ainda não pagas e não em análise.
+// PENDING (incl. vencido) e REJECTED (comprovante recusado, precisa reenviar).
+function canCharge(status: string): boolean {
+  return status === "PENDING" || status === "REJECTED";
 }
 
 export default async function GroupPanelPage({
@@ -120,7 +98,7 @@ export default async function GroupPanelPage({
       charges: {
         orderBy: { dueDate: "desc" },
         include: {
-          member: { select: { name: true } },
+          member: { select: { name: true, phone: true, publicToken: true } },
           payments: {
             where: { status: "PENDING_REVIEW" },
             orderBy: { createdAt: "desc" },
@@ -401,6 +379,7 @@ export default async function GroupPanelPage({
                   <th className="px-4 py-2 font-medium">Valor</th>
                   <th className="px-4 py-2 font-medium">Vencimento</th>
                   <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -417,6 +396,30 @@ export default async function GroupPanelPage({
                       </td>
                       <td className="px-4 py-2">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {canCharge(c.status) && (
+                          <Button
+                            variant="outline"
+                            size="xs"
+                            render={
+                              <a
+                                href={whatsappChargeLink({
+                                  name: c.member.name,
+                                  groupName: group.name,
+                                  amount: c.amount.toString(),
+                                  phone: c.member.phone,
+                                  slug: group.slug,
+                                  token: c.member.publicToken,
+                                })}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              />
+                            }
+                          >
+                            Cobrar no WhatsApp
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );

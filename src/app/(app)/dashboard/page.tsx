@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { formatBRL, frequencyLabels } from "@/lib/format";
+import { computeSummary } from "@/lib/summary";
 
 export const metadata = {
   title: "Dashboard — Fechô",
@@ -22,17 +23,25 @@ export default async function DashboardPage() {
   if (!session?.user?.id) redirect("/login");
   const userId = session.user.id;
 
-  const [user, groups] = await Promise.all([
+  const [user, groups, charges] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { plan: true } }),
     db.group.findMany({
       where: { ownerId: userId },
       orderBy: { createdAt: "desc" },
       include: { _count: { select: { members: true } } },
     }),
+    // Cobranças de todos os grupos do usuário, pro resumo consolidado.
+    db.charge.findMany({
+      where: { group: { ownerId: userId } },
+      select: { status: true, amount: true, dueDate: true, memberId: true },
+    }),
   ]);
 
   // Limite freemium: FREE = 1 grupo. PRO = ilimitado.
   const canCreate = user?.plan === "PRO" || groups.length < 1;
+
+  // Totais somando todos os grupos (mesma regra da página do grupo).
+  const { collected, outstanding, defaulters } = computeSummary(charges);
 
   return (
     <div className="flex flex-col gap-8">
@@ -57,6 +66,47 @@ export default async function DashboardPage() {
           Você atingiu o limite do plano gratuito (1 grupo). Faça upgrade pro
           PRO para criar grupos ilimitados.
         </p>
+      )}
+
+      {/* Totais consolidados de todos os grupos */}
+      {groups.length > 0 && (
+        <section className="grid gap-4 sm:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Arrecadado</CardDescription>
+              <CardTitle className="text-2xl text-foreground">
+                {formatBRL(collected)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm text-muted-foreground">
+              Em todos os seus grupos.
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Em aberto</CardDescription>
+              <CardTitle className="text-2xl text-foreground">
+                {formatBRL(outstanding)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm text-muted-foreground">
+              Ainda não recebido.
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Inadimplentes</CardDescription>
+              <CardTitle className="text-2xl text-foreground">
+                {defaulters}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0 text-sm text-muted-foreground">
+              {defaulters === 1
+                ? "membro com cobrança vencida"
+                : "membros com cobrança vencida"}
+            </CardContent>
+          </Card>
+        </section>
       )}
 
       {groups.length === 0 ? (
