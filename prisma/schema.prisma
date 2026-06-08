@@ -14,6 +14,11 @@ enum Plan {
   PRO
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 enum Frequency {
   ONCE
   WEEKLY
@@ -56,6 +61,8 @@ model User {
   // tem senha. Nunca guardamos a senha em texto.
   passwordHash  String?   @map("password_hash")
   plan          Plan      @default(FREE)
+  // Acesso ao painel admin. Default USER; promoção a ADMIN é manual no banco.
+  role          Role      @default(USER)
   createdAt     DateTime  @default(now()) @map("created_at")
 
   accounts Account[]
