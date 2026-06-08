@@ -151,6 +151,37 @@ sudo chmod 644 /etc/cron.d/fecho
 
 ---
 
+## Umami (analytics: acessos + geolocalização)
+
+Self-hosted, reusa o Postgres (database `umami`), exposto em
+`analytics.fechoapp.com.br`. Cookieless / LGPD-friendly.
+
+```bash
+# 1) DNS: criar CNAME  analytics -> fechoapp.com.br  (ou A -> IP da VPS)
+
+# 2) Database do Umami + segredo no .env
+cd ~/fecho && git pull
+docker compose -f docker-compose.prod.yml exec postgres psql -U fecho -c "CREATE DATABASE umami;"
+echo "UMAMI_APP_SECRET=\"$(openssl rand -base64 32)\"" >> .env
+
+# 3) Sobe o Umami + Nginx + SSL
+docker compose -f docker-compose.prod.yml up -d
+sudo cp ~/fecho/deploy/nginx/analytics.conf /etc/nginx/sites-enabled/analytics.conf
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d analytics.fechoapp.com.br
+
+# 4) Painel: abrir https://analytics.fechoapp.com.br (login admin / umami,
+#    TROCAR a senha). Settings > Websites > Add (domínio fechoapp.com.br).
+#    Copiar o Website ID.
+
+# 5) Ligar o tracking: preencher UMAMI_WEBSITE_ID no .env e recriar o web
+nano .env   # UMAMI_WEBSITE_ID="<id copiado>"
+docker compose -f docker-compose.prod.yml up -d web
+```
+
+> O script de tracking só é injetado quando `UMAMI_SCRIPT_URL` **e**
+> `UMAMI_WEBSITE_ID` estão no `.env` (ver `src/app/layout.tsx`).
+
 ## Operação
 
 ```bash

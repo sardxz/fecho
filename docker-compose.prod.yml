@@ -75,6 +75,24 @@ services:
     networks:
       - internal
 
+  # Analytics self-hosted (acessos, páginas, países, dispositivos). Cookieless.
+  # Reusa o Postgres num database separado "umami" (criar antes: ver DEPLOY.md).
+  # Exposto só em 127.0.0.1:3001 pro Nginx fazer proxy (analytics.fechoapp.com.br).
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET}
+    ports:
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+
 volumes:
   postgres_data:
   minio_data:
