@@ -34,3 +34,29 @@ export const credentialsLoginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1),
 });
+
+// Definir senha pela 1ª vez (conta criada por Google/magic link, sem senha).
+// Não pede senha atual — não existe. Confirmação evita errar a digitação, já
+// que senha trocada errado só se recupera pelo magic link.
+export const setPasswordSchema = z
+  .object({
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });
+
+// Alterar senha existente: exige a senha atual pra confirmar que é o dono da
+// conta (a checagem real é por bcrypt.compare na action, ver actions.ts).
+export const changePasswordSchema = z
+  .object({
+    currentPassword: z.string().min(1, "Informe a senha atual."),
+    newPassword: passwordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.newPassword === d.confirmPassword, {
+    message: "As senhas não conferem.",
+    path: ["confirmPassword"],
+  });

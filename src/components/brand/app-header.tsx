@@ -14,6 +14,9 @@ export function AppHeader({ email }: { email: string }) {
           <span className="hidden text-sm text-muted-foreground sm:inline">
             {email}
           </span>
+          <Button variant="ghost" size="sm" render={<Link href="/configuracoes" />}>
+            Conta
+          </Button>
           <form action={signOutAction}>
             <Button variant="ghost" size="sm" type="submit">
               Sair
