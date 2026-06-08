@@ -5,11 +5,11 @@ import {
   HeadBucketCommand,
   CreateBucketCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// Cliente S3 apontado pro MinIO (Fase 5). Em produção o mesmo código serve
-// pra qualquer storage S3-compat — só muda o endpoint nas envs.
-// `forcePathStyle` é obrigatório no MinIO (URLs tipo host/bucket/objeto).
+// Cliente S3 apontado pro MinIO. Em produção o MinIO roda num container da
+// rede interna (host "minio"), NUNCA exposto à internet — o Next é o único
+// que fala com ele. `forcePathStyle` é obrigatório no MinIO (URLs tipo
+// host/bucket/objeto).
 const endpoint = process.env.S3_ENDPOINT;
 const bucket = process.env.S3_BUCKET_NAME ?? "proofs";
 
@@ -45,8 +45,8 @@ async function ensureBucket(): Promise<void> {
 }
 
 // Sobe um comprovante e devolve a CHAVE do objeto (não uma URL pública).
-// O comprovante nunca fica acessível publicamente: a leitura é só por URL
-// pré-assinada temporária (getProofUrl), gerada pro organizador na revisão.
+// O comprovante nunca fica acessível publicamente: a leitura é sempre
+// intermediada pelo Next (getProofObject), com validação de dono.
 export async function uploadProof(
   body: Buffer,
   contentType: string,
@@ -64,13 +64,16 @@ export async function uploadProof(
   return key;
 }
 
-// URL pré-assinada de leitura, válida por `expiresIn` segundos (padrão 5 min).
-// Usada na Etapa 5 quando o organizador for revisar o comprovante.
-export async function getProofUrl(
-  key: string,
-  expiresIn = 300,
-): Promise<string> {
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), {
-    expiresIn,
-  });
+// Baixa o objeto do MinIO e devolve os bytes + content-type. O Next repassa
+// isso pro organizador (stream via rota protegida), em vez de redirecionar pra
+// uma URL pré-assinada. Assim o MinIO NUNCA precisa ser exposto à internet —
+// o navegador nunca o acessa direto. Comprovante é pequeno (≤5 MB), então
+// carregar em memória e repassar é tranquilo.
+export async function getProofObject(key: string): Promise<{
+  body: Uint8Array;
+  contentType?: string;
+}> {
+  const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  const body = await res.Body!.transformToByteArray();
+  return { body, contentType: res.ContentType };
 }

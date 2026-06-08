@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getProofUrl } from "@/lib/storage";
+import { getProofObject } from "@/lib/storage";
 
-// Serve o comprovante sob demanda: gera a URL pré-assinada do MinIO só no
-// clique e redireciona pra ela. Assim o link no painel nunca "expira na tela"
-// (a URL temporária de 5 min só nasce aqui) e o arquivo nunca fica público.
-// Valida sessão + ownership (Payment → Charge → Group.ownerId) antes de tudo.
+// Serve o comprovante sob demanda: o Next baixa o arquivo do MinIO (rede
+// interna) e repassa pro organizador. O arquivo nunca fica público e o MinIO
+// nunca é exposto à internet. Valida sessão + ownership
+// (Payment → Charge → Group.ownerId) antes de tocar no storage.
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string; paymentId: string }> },
@@ -39,5 +39,14 @@ export async function GET(
     return new Response("Comprovante sem arquivo.", { status: 404 });
   }
 
-  redirect(await getProofUrl(payment.proofUrl));
+  const { body, contentType } = await getProofObject(payment.proofUrl);
+  return new Response(body as BodyInit, {
+    headers: {
+      "Content-Type": contentType ?? "application/octet-stream",
+      // Abre no navegador (imagem/PDF) em vez de baixar.
+      "Content-Disposition": "inline",
+      // Comprovante é dado sensível: não deixa cache em proxy/navegador.
+      "Cache-Control": "private, no-store",
+    },
+  });
 }

@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Empacota só o necessário pra rodar (server.js + deps usadas) numa imagem
+  // Docker enxuta. Usado no Dockerfile de produção (deploy na VPS).
+  output: "standalone",
   experimental: {
     serverActions: {
       // Padrão é 1 MB. Comprovantes (imagem/PDF) podem passar disso; o

@@ -1,0 +1,83 @@
+# Produção (VPS). Sobe Postgres + MinIO + Next numa rede interna isolada.
+# Nem o Postgres nem o MinIO publicam portas — só existem pra os containers.
+# O Next é publicado SÓ em 127.0.0.1:3000, pro Nginx do host fazer proxy.
+#
+# Uso na VPS:
+#   cp .env.production.example .env   # e preencha os segredos
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# As senhas vêm do arquivo .env (mesma pasta). NUNCA comite o .env real.
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  minio:
+    image: minio/minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    networks:
+      - internal
+
+  # Roda as migrations do Prisma e sai. O web só sobe depois que isto termina
+  # com sucesso. Usa o stage "builder" (tem o Prisma CLI + schema + migrations).
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: "no"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    restart: unless-stopped
+    env_file: .env
+    # Só o host (Nginx) alcança o app — não fica aberto pra internet.
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - internal
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  internal:

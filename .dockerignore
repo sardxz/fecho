@@ -1,0 +1,16 @@
+.git
+node_modules
+.next
+out
+build
+coverage
+graphify-out
+.graphify_*
+.codex
+src/generated
+.env*
+CLAUDE.md
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+.DS_Store
