@@ -1,0 +1,3 @@
+# Fechô — geração diária de cobranças recorrentes (06:00, fuso da VPS).
+# Instalado em /etc/cron.d/fecho. Formato cron.d inclui o campo de usuário.
+0 6 * * * root /root/fecho/deploy/cron/generate-charges.sh >> /var/log/fecho-cron.log 2>&1

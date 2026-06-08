@@ -1,0 +1,4 @@
+# Scripts e arquivos de cron precisam de quebra de linha LF (Unix), senão o
+# shebang/cron quebra na VPS Linux quando o repo é editado no Windows.
+*.sh text eol=lf
+deploy/cron/fecho text eol=lf
