@@ -182,6 +182,30 @@ docker compose -f docker-compose.prod.yml up -d web
 > O script de tracking só é injetado quando `UMAMI_SCRIPT_URL` **e**
 > `UMAMI_WEBSITE_ID` estão no `.env` (ver `src/app/layout.tsx`).
 
+## Mercado Pago (assinatura PRO)
+
+A assinatura recorrente roda pelo **preapproval** do Mercado Pago (renovação
+automática por cartão). O webhook confirma o pagamento e seta `User.plan = PRO`.
+
+```text
+1) Painel MP (https://www.mercadopago.com.br/developers) → criar/abrir o app.
+
+2) Credenciais de PRODUÇÃO → copiar o Access Token (APP_USR-...).
+   Preencher no .env da VPS:  MP_ACCESS_TOKEN="APP_USR-..."
+
+3) Webhooks → cadastrar a URL:
+      https://fechoapp.com.br/api/webhooks/mercadopago
+   Marcar o evento "Assinaturas" (preapproval). Copiar a "Assinatura secreta".
+   Preencher no .env:  MP_WEBHOOK_SECRET="<assinatura secreta>"
+
+4) Recriar o app pra carregar as envs:
+      docker compose -f docker-compose.prod.yml up -d web
+```
+
+> **Segurança:** o webhook é *fail-closed* — sem `MP_WEBHOOK_SECRET` ele recusa
+> toda notificação (401). E nunca confia no corpo recebido: valida a assinatura
+> HMAC e depois consulta o MP pelo id pra ler o status real antes de virar PRO.
+
 ## Operação
 
 ```bash

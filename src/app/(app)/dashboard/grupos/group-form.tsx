@@ -72,9 +72,14 @@ export function GroupForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       {state.error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {state.error}
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span>{state.error}</span>
+          {state.upgrade && (
+            <Button size="sm" render={<Link href="/dashboard/assinatura" />}>
+              Assinar PRO
+            </Button>
+          )}
+        </div>
       )}
 
       <div className="space-y-2">

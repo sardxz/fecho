@@ -12,6 +12,8 @@ export type MemberFormState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
   ok?: boolean;
+  // Sinaliza pra UI mostrar o CTA "Assinar PRO" (limite do plano gratuito).
+  upgrade?: boolean;
 };
 
 export type ChargeFormState = {
@@ -89,6 +91,7 @@ export async function addMember(
     if (count >= FREE_MEMBER_LIMIT) {
       return {
         error: `No plano gratuito cada grupo tem até ${FREE_MEMBER_LIMIT} membros. Faça upgrade pro PRO para adicionar mais.`,
+        upgrade: true,
       };
     }
   }

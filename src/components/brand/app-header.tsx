@@ -25,6 +25,13 @@ export function AppHeader({
               Admin
             </Button>
           )}
+          <Button
+            variant="ghost"
+            size="sm"
+            render={<Link href="/dashboard/assinatura" />}
+          >
+            Plano
+          </Button>
           <Button variant="ghost" size="sm" render={<Link href="/configuracoes" />}>
             Conta
           </Button>

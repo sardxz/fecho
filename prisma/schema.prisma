@@ -19,6 +19,13 @@ enum Role {
   ADMIN
 }
 
+// Ciclo da assinatura PRO. MONTHLY cobra todo mês; ANNUAL todo ano (mais
+// barato no efetivo mensal). Null = usuário FREE, sem assinatura.
+enum PlanCycle {
+  MONTHLY
+  ANNUAL
+}
+
 enum Frequency {
   ONCE
   WEEKLY
@@ -63,6 +70,15 @@ model User {
   plan          Plan      @default(FREE)
   // Acesso ao painel admin. Default USER; promoção a ADMIN é manual no banco.
   role          Role      @default(USER)
+  // ─── Assinatura PRO (Mercado Pago) ───
+  // Id do preapproval (assinatura) no Mercado Pago. Fonte da verdade do
+  // vínculo; o webhook consulta o MP por ele pra confirmar o status.
+  mpPreapprovalId String?    @unique @map("mp_preapproval_id")
+  // Ciclo escolhido. Null enquanto FREE.
+  planCycle       PlanCycle? @map("plan_cycle")
+  // Próxima renovação informada pelo MP. Só pra exibir na tela; quem manda no
+  // plan é sempre o webhook consultando o MP.
+  planRenewsAt    DateTime?  @map("plan_renews_at")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   accounts Account[]

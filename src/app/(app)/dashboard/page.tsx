@@ -62,10 +62,15 @@ export default async function DashboardPage() {
       </header>
 
       {!canCreate && (
-        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Você atingiu o limite do plano gratuito (1 grupo). Faça upgrade pro
-          PRO para criar grupos ilimitados.
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          <span>
+            Você atingiu o limite do plano gratuito (1 grupo). Faça upgrade pro
+            PRO para criar grupos ilimitados.
+          </span>
+          <Button size="sm" render={<Link href="/dashboard/assinatura" />}>
+            Assinar PRO
+          </Button>
+        </div>
       )}
 
       {/* Totais consolidados de todos os grupos */}

@@ -10,6 +10,8 @@ import { slugify } from "@/lib/slug";
 export type GroupFormState = {
   error?: string;
   fieldErrors?: Record<string, string[]>;
+  // Sinaliza pra UI mostrar o CTA "Assinar PRO" (limite do plano gratuito).
+  upgrade?: boolean;
 };
 
 const FREE_GROUP_LIMIT = 1;
@@ -80,6 +82,7 @@ export async function createGroup(
       return {
         error:
           "No plano gratuito você pode ter 1 grupo. Faça upgrade pro PRO para criar mais.",
+        upgrade: true,
       };
     }
   }
