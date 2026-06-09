@@ -28,10 +28,11 @@ export const PRO_PRICING: Record<PlanCycle, ProPlan> = {
   ANNUAL: {
     cycle: "ANNUAL",
     label: "Anual",
-    amount: 99,
+    // 25% de desconto sobre 12x o mensal (9,90 × 12 = 118,80 → 89,10).
+    amount: 89.1,
     frequency: 12,
     frequencyType: "months",
-    perMonth: 99 / 12,
+    perMonth: 89.1 / 12,
   },
 };
 
