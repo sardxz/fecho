@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/capa.png" alt="Fechô — Pare de cobrar seu grupo no WhatsApp" width="860">
+</p>
+
 # Fechô
 
 **Pare de cobrar seu grupo no WhatsApp.**
