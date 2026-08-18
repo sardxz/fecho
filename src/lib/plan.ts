@@ -1,7 +1,8 @@
 import type { PlanCycle } from "@/generated/prisma/client";
 
 // Configuração do plano PRO num lugar só — UI, checkout e admin leem daqui.
-// Preço definido pelo Sardinha: R$ 9,90/mês; anual com 2 meses "grátis".
+// Preços de referência: R$ 9,90/mês e anual com 25% de desconto. Numa
+// instância própria, ajuste os valores aqui — nada mais depende deles.
 //
 // O Mercado Pago cobra recorrência por `frequency` + `frequency_type`. Anual =
 // a cada 12 meses (o MP usa "months"/"days", não tem "years").

@@ -77,7 +77,7 @@ services:
 
   # Analytics self-hosted (acessos, páginas, países, dispositivos). Cookieless.
   # Reusa o Postgres num database separado "umami" (criar antes: ver DEPLOY.md).
-  # Exposto só em 127.0.0.1:3001 pro Nginx fazer proxy (analytics.fechoapp.com.br).
+  # Exposto só em 127.0.0.1:3001 pro Nginx fazer proxy (analytics.SEU-DOMINIO.com.br).
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
     restart: unless-stopped

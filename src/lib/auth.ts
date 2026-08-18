@@ -24,8 +24,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
     Resend({
       // Remetente vem do .env (AUTH_RESEND_FROM) pra não acoplar o domínio
-      // ao código. Precisa ser um domínio verificado no Resend.
-      from: process.env.AUTH_RESEND_FROM ?? "Fechô <noreply@fechoapp.com.br>",
+      // ao código. Precisa ser um domínio verificado no Resend. Sem ele, cai no
+      // remetente de sandbox do Resend, que só entrega no e-mail dono da conta:
+      // serve pra desenvolvimento, nunca pra produção.
+      from: process.env.AUTH_RESEND_FROM ?? "Fechô <onboarding@resend.dev>",
     }),
     Credentials({
       credentials: {

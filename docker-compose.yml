@@ -1,3 +1,7 @@
+# ATENÇÃO: este compose é só pra DESENVOLVIMENTO LOCAL. As credenciais abaixo
+# são fracas de propósito (facilitar o setup) e as portas ficam expostas na sua
+# máquina. Para produção use o docker-compose.prod.yml + .env (ver DEPLOY.md).
+
 services:
   postgres:
     image: postgres:16

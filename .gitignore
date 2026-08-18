@@ -54,3 +54,6 @@ next-env.d.ts
 # graphify — knowledge graph gerado (saída de build, local)
 /graphify-out/
 .graphify_*
+
+# Claude Code — configuracoes locais da maquina (podem conter caminhos/comandos)
+.claude/settings.local.json

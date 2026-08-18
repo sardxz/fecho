@@ -1,6 +1,6 @@
 import { formatBRL } from "@/lib/format";
 
-// Base pública do app. Em dev é localhost:3000; em produção, fechoapp.com.br.
+// Base pública do app. Em dev é localhost:3000; em produção, o seu domínio.
 // Reusa o AUTH_URL que o Auth.js já exige, pra não criar outra env.
 const APP_URL = process.env.AUTH_URL ?? "http://localhost:3000";
 
